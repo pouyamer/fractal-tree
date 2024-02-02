@@ -1,0 +1,21 @@
+{
+  "name": "fractal-tree",
+  "version": "1.0.0",
+  "description": "",
+  "main": "./dist/script.js",
+  "scripts": {
+    "dev": "npx tsc --watch"
+  },
+  "keywords": [
+    "fractal-tree",
+    "math",
+    "ts",
+    "js",
+    "canvas-js"
+  ],
+  "author": "Pouya Moazzezi",
+  "license": "MIT",
+  "dependencies": {
+    "typescript": "^5.3.3"
+  }
+}
