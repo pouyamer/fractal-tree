@@ -6,11 +6,11 @@ const config = {
     size: { width: innerWidth, height: innerHeight }
   },
   tree: {
-    startingLength: 300,
-    strokeWidth: 20,
-    angle: Math.PI / 3,
+    startingLength: 600,
+    strokeWidth: 25,
+    angle: Math.PI / 2,
     // how much to branch
-    branchFraction: 0.7
+    branchFraction: 0.6
   }
 }
 
@@ -44,6 +44,11 @@ class Point {
   }
 }
 
+type PointAngleTupleType = {
+  point: Point
+  angle: number
+}
+
 const getNewPoint = (startingPoint: Point, angle: number, distance: number) => {
   return new Point(
     startingPoint.x + distance * Math.cos(angle),
@@ -62,25 +67,47 @@ const createBranchPoints = (
   startingPoint: Point,
   angle: number,
   length: number,
-  midAngle: number = PI / 2
-) => {
-  let branches = []
-  const firstBranchPoint = getNewPoint(
-    startingPoint,
-    midAngle - angle / 2,
-    length
-  )
+  midAngle: number = PI / 2,
+  count: number = 2
+): PointAngleTupleType[] => {
+  if (count === 1) {
+    return [
+      {
+        point: getNewPoint(startingPoint, midAngle, length),
+        angle: midAngle
+      }
+    ]
+  }
 
-  const endBranchPoint = getNewPoint(
-    startingPoint,
-    midAngle + angle / 2,
-    length
-  )
-
-  branches.push(firstBranchPoint)
-  branches.push(endBranchPoint)
-
-  return branches
+  if (count === 2) {
+    return [
+      {
+        point: getNewPoint(startingPoint, midAngle - angle / 2, length),
+        angle: midAngle - angle / 2
+      },
+      {
+        point: getNewPoint(startingPoint, midAngle + angle / 2, length),
+        angle: midAngle + angle / 2
+      }
+    ]
+  }
+  if (count === 3) {
+    return [
+      {
+        point: getNewPoint(startingPoint, midAngle - angle / 2, length),
+        angle: midAngle - angle / 2
+      },
+      {
+        point: getNewPoint(startingPoint, midAngle + angle / 2, length),
+        angle: midAngle + angle / 2
+      },
+      {
+        point: getNewPoint(startingPoint, midAngle, length),
+        angle: midAngle
+      }
+    ]
+  }
+  throw new Error()
 }
 
 const drawBranches = (startingPoint: Point, branchPoints: Point[], hue = 0) => {
@@ -98,45 +125,35 @@ const makeFractalTree = (
   fraction: number,
   strokeWidth: number,
   midAngle: number,
-  hue = 20
+  branchCount: number
 ) => {
-  if (length < 3) {
+  if (length < 2) {
     return
   }
-  const branches = createBranchPoints(
+  const pointConfigTuples = createBranchPoints(
     startingPoint,
-    angle * 1.2,
+    angle,
     length * fraction,
-    midAngle
+    midAngle,
+    branchCount
   )
+
+  const branchPoints = pointConfigTuples.map(({ point }) => point)
 
   ctx.lineWidth = strokeWidth
-  drawBranches(startingPoint, branches, hue)
+  drawBranches(startingPoint, branchPoints)
 
-  const firstBranchingAngle = midAngle - angle / 2
-  const endBranchingAngle = midAngle + angle / 2
-
-  // make two lines above using atan with correct angles
-
-  makeFractalTree(
-    branches[0],
-    angle,
-    length * fraction,
-    fraction,
-    Math.max(strokeWidth - 1, 1),
-    firstBranchingAngle,
-    hue + (20 * length) / config.tree.startingLength
-  )
-
-  makeFractalTree(
-    branches[1],
-    angle,
-    length * fraction,
-    fraction,
-    Math.max(strokeWidth - 1, 1),
-    endBranchingAngle,
-    hue + (20 * length) / config.tree.startingLength
-  )
+  pointConfigTuples.forEach(({ angle: paangle, point: papoint }) => {
+    makeFractalTree(
+      papoint,
+      angle,
+      length * fraction,
+      fraction,
+      Math.max(strokeWidth * 0.7, 1),
+      paangle,
+      2
+    )
+  })
 }
 
 // a recursive function that draws the fractal tree
@@ -145,22 +162,18 @@ const makeFractalTree = (
 const main = () => {
   const { startingLength, strokeWidth: treeStrokeWidth } = config.tree
 
-  // the base
   let startingPoint = new Point(0, -canvasSize.height / 2)
-  let endPoint = getNewPoint(startingPoint, PI / 2, startingLength)
 
   ctx.strokeStyle = hslString(0, 75, 30)
-  ctx.lineWidth = treeStrokeWidth
-  drawLine(startingPoint, endPoint)
 
-  startingPoint = endPoint
   makeFractalTree(
     startingPoint,
     config.tree.angle,
     startingLength,
     branchToTreeFraction,
-    treeStrokeWidth / 2,
-    PI / 2
+    treeStrokeWidth,
+    PI / 2,
+    1
   )
 }
 
