@@ -1,18 +1,42 @@
 const hslString = (h: number, s: number, l: number, a: number = 1) =>
   `hsl(${h}, ${s}%, ${l}%, ${a})`
+const randomNumber = (min: number, max: number) =>
+  Math.random() * (max - min) + min
 
 const config = {
   canvas: {
     size: { width: innerWidth, height: innerHeight }
   },
   tree: {
-    startingLength: 600,
-    strokeWidth: 25,
-    angle: Math.PI / 2,
+    length: innerHeight,
+    strokeWidth: 10,
+    angle: 1.3 * Math.PI,
     // how much to branch
-    branchFraction: 0.6
+    branchFraction: 0.5,
+    midangle: Math.PI / 2,
+    branchingMode: "random",
+    branchCount: 3,
+    randomBranchCount: {
+      min: 2,
+      max: 7
+    }
   }
 }
+
+// TODO: find the formula for the mid angle
+// TODO: Add Types for config and tree config
+// TODO: Add random:
+//       - angle
+//       - fraction
+//       - branch count
+// TODO: Add UnEven Branch Distribution
+
+// TODO: add a level determiner
+// TODO: Make a fractal tree class and add methods
+//       - it has:
+//         - level
+//         - mid angle
+//         - branch count
 
 const canvas = document.querySelector(".canvas") as HTMLCanvasElement
 const ctx = canvas.getContext("2d") as CanvasRenderingContext2D
@@ -23,7 +47,12 @@ canvas.width = canvasSize.width
 
 // destructuring
 const { PI } = Math
-const { branchFraction: branchToTreeFraction } = config.tree
+const {
+  branchFraction: branchToTreeFraction,
+  branchingMode: treeBranchingMode,
+  branchCount: treeBranchCount,
+  randomBranchCount: { min: branchCountMin, max: branchCountMax }
+} = config.tree
 
 type PointType = {
   x: number
@@ -70,44 +99,62 @@ const createBranchPoints = (
   midAngle: number = PI / 2,
   count: number = 2
 ): PointAngleTupleType[] => {
+  let branchMidangles: number[] = []
   if (count === 1) {
-    return [
-      {
-        point: getNewPoint(startingPoint, midAngle, length),
-        angle: midAngle
-      }
-    ]
+    branchMidangles = [midAngle]
   }
 
   if (count === 2) {
-    return [
-      {
-        point: getNewPoint(startingPoint, midAngle - angle / 2, length),
-        angle: midAngle - angle / 2
-      },
-      {
-        point: getNewPoint(startingPoint, midAngle + angle / 2, length),
-        angle: midAngle + angle / 2
-      }
-    ]
+    branchMidangles = [midAngle - angle / 2, midAngle + angle / 2]
   }
   if (count === 3) {
-    return [
-      {
-        point: getNewPoint(startingPoint, midAngle - angle / 2, length),
-        angle: midAngle - angle / 2
-      },
-      {
-        point: getNewPoint(startingPoint, midAngle + angle / 2, length),
-        angle: midAngle + angle / 2
-      },
-      {
-        point: getNewPoint(startingPoint, midAngle, length),
-        angle: midAngle
-      }
+    branchMidangles = [midAngle - angle / 2, midAngle, midAngle + angle / 2]
+  }
+  if (count === 4) {
+    branchMidangles = [
+      midAngle - angle / 2,
+      midAngle - angle / 6,
+      midAngle + angle / 6,
+      midAngle + angle / 2
     ]
   }
-  throw new Error()
+
+  if (count === 5) {
+    branchMidangles = [
+      midAngle - angle / 2,
+      midAngle - angle / 4,
+      midAngle,
+      midAngle + angle / 4,
+      midAngle + angle / 2
+    ]
+  }
+
+  if (count === 6) {
+    branchMidangles = [
+      midAngle - angle / 2,
+      midAngle - angle / 8,
+      midAngle - angle / 3,
+      midAngle + angle / 3,
+      midAngle + angle / 8,
+      midAngle + angle / 2
+    ]
+  }
+
+  if (count === 7) {
+    branchMidangles = [
+      midAngle - angle / 2,
+      midAngle - angle / 3,
+      midAngle - angle / 6,
+      midAngle,
+      midAngle + angle / 6,
+      midAngle + angle / 3,
+      midAngle + angle / 2
+    ]
+  }
+
+  return branchMidangles.map(angle => {
+    return { angle, point: getNewPoint(startingPoint, angle, length) }
+  })
 }
 
 const drawBranches = (startingPoint: Point, branchPoints: Point[], hue = 0) => {
@@ -115,6 +162,19 @@ const drawBranches = (startingPoint: Point, branchPoints: Point[], hue = 0) => {
 
   for (let point of branchPoints) {
     drawLine(startingPoint, point)
+  }
+}
+
+const determineBranchCount = () => {
+  switch (treeBranchingMode) {
+    case "none":
+      return treeBranchCount
+
+    case "random":
+      return Math.floor(randomNumber(branchCountMin, branchCountMax))
+
+    default:
+      throw new Error("invalid branching mode")
   }
 }
 
@@ -130,10 +190,11 @@ const makeFractalTree = (
   if (length < 2) {
     return
   }
+
   const pointConfigTuples = createBranchPoints(
     startingPoint,
     angle,
-    length * fraction,
+    length,
     midAngle,
     branchCount
   )
@@ -151,7 +212,7 @@ const makeFractalTree = (
       fraction,
       Math.max(strokeWidth * 0.7, 1),
       paangle,
-      2
+      determineBranchCount()
     )
   })
 }
@@ -160,7 +221,10 @@ const makeFractalTree = (
 // using the iterations above
 
 const main = () => {
-  const { startingLength, strokeWidth: treeStrokeWidth } = config.tree
+  const { length, strokeWidth: treeStrokeWidth } = config.tree
+
+  ctx.fillStyle = "#eee"
+  ctx.fillRect(0, 0, canvasSize.width, canvasSize.height)
 
   let startingPoint = new Point(0, -canvasSize.height / 2)
 
@@ -169,10 +233,10 @@ const main = () => {
   makeFractalTree(
     startingPoint,
     config.tree.angle,
-    startingLength,
+    length * branchToTreeFraction,
     branchToTreeFraction,
     treeStrokeWidth,
-    PI / 2,
+    config.tree.midangle,
     1
   )
 }
